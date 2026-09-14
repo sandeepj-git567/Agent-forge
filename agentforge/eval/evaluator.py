@@ -2,44 +2,50 @@
 Automated AI Agent Evaluation Engine for AgentForge AI
 """
 import uuid
+from typing import Any
 
 from agentforge.eval.datasets import EvaluationResult
+from agentforge.eval.metrics import (
+    calculate_citation_quality,
+    calculate_correctness,
+    calculate_groundedness,
+    calculate_relevance,
+)
 
 
 class AIEvaluator:
     """Evaluates agent responses for correctness, relevance, groundedness, and citation quality."""
 
     @staticmethod
-    def evaluate_response(input_text: str, actual_output: str, expected_output: str = "") -> EvaluationResult:
-        """Calculate evaluation scores based on response heuristic metrics."""
-        output_lower = actual_output.lower() if actual_output else ""
-        input_lower = input_text.lower() if input_text else ""
+    def evaluate_response(
+        input_text: str,
+        actual_output: str,
+        expected_output: str = "",
+        context_snippets: list[str] | None = None,
+        sources: list[dict[str, Any]] | None = None
+    ) -> EvaluationResult:
+        """Calculate evaluation scores using deterministic metrics engine."""
+        relevance = calculate_relevance(input_text, actual_output)
+        groundedness = calculate_groundedness(actual_output, context_snippets)
+        correctness = calculate_correctness(actual_output, expected_output)
+        citation_quality = calculate_citation_quality(actual_output, sources)
 
-        # Relevance calculation
-        keywords = [w for w in input_lower.split() if len(w) > 3]
-        matches = sum(1 for k in keywords if k in output_lower)
-        relevance = min(1.0, max(0.5, matches / len(keywords))) if keywords else 0.8
+        overall = round((correctness * 0.3) + (relevance * 0.3) + (groundedness * 0.2) + (citation_quality * 0.2), 2)
 
-        # Groundedness calculation (checks for structure, citations or evidence headers)
-        groundedness = 0.9 if any(h in output_lower for h in ["summary", "plan", "evidence", "based on", "citation"]) else 0.7
-
-        # Correctness score
-        correctness = 0.95 if actual_output and len(actual_output) > 50 else 0.6
-
-        # Citation quality score
-        citation_quality = 0.9 if "citation" in output_lower or "source" in output_lower or "http" in output_lower else 0.75
-
-        overall = round((relevance + groundedness + correctness + citation_quality) / 4.0, 2)
+        feedback = (
+            f"Evaluation result: Overall score {overall:.2f} (Correctness: {correctness:.2f}, "
+            f"Relevance: {relevance:.2f}, Groundedness: {groundedness:.2f}, Citation Quality: {citation_quality:.2f})."
+        )
 
         return EvaluationResult(
             eval_id=f"eval-{uuid.uuid4().hex[:8]}",
             run_id=f"run-{uuid.uuid4().hex[:8]}",
-            correctness_score=round(correctness, 2),
-            relevance_score=round(relevance, 2),
-            groundedness_score=round(groundedness, 2),
-            citation_quality_score=round(citation_quality, 2),
+            correctness_score=correctness,
+            relevance_score=relevance,
+            groundedness_score=groundedness,
+            citation_quality_score=citation_quality,
             overall_score=overall,
-            feedback=f"Evaluation passed with overall score {overall:.2f}."
+            feedback=feedback
         )
 
 
