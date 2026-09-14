@@ -50,12 +50,18 @@ class Settings(BaseSettings):
         return self
 
     @property
+    def DEFAULT_LLM_MODEL(self) -> str:
+        """Alias for GOOGLE_MODEL."""
+        return self.GOOGLE_MODEL
+
+    @property
     def is_gemini_configured(self) -> bool:
         """Return True if GOOGLE_API_KEY is present and not a placeholder."""
         if not self.GOOGLE_API_KEY:
             return False
         k = self.GOOGLE_API_KEY.lower()
         return not (k.startswith("your_") or "placeholder" in k or "your-api-key" in k)
+
 
     @property
     def is_api_key_configured(self) -> bool:

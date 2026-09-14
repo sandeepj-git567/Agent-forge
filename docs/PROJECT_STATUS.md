@@ -6,8 +6,8 @@
 
 - `[x]` **Stage 0 — Full Codebase Audit**: Completed comprehensive codebase inspection and documented findings in `docs/CODEBASE_AUDIT.md`.
 - `[x]` **Stage 1 — Secure Configuration**: Upgraded `agentforge/config/settings.py` with Pydantic Settings v2, startup configuration validation, safe secret masking, added `/api/v1/health/config` endpoint, updated `.env.example`, verified `.gitignore`, and documented production JWT secret generation commands.
-- `[ ]` **Stage 2 — Database Persistence (PostgreSQL & pgvector)**: Next up.
-- `[ ]` **Stage 3 — Real pgvector RAG Pipeline**
+- `[x]` **Stage 2 — Database Persistence (PostgreSQL & pgvector)**: Created DeclarativeBase with mixins (`agentforge/db/base.py`), connection pooling and health check (`agentforge/db/session.py`), 14 relational models with database indices (`agentforge/db/models.py`), UserRepository, DocumentRepository, WorkflowRepository, and `docs/DATABASE_SETUP.md`.
+- `[ ]` **Stage 3 — Real pgvector RAG Pipeline**: Next up.
 - `[ ]` **Stage 4 — Real Gemini & Google ADK Execution**
 - `[ ]` **Stage 5 — Real Tool Execution & Security**
 - `[ ]` **Stage 6 — Production Authentication & RBAC**
@@ -22,8 +22,10 @@
 
 ---
 
-### Stage 1 Verification
-- Config endpoint tested: `GET /api/v1/health/config` returns non-sensitive status summary.
-- Environment template populated: `.env.example`.
-- Secrets redacted: Raw API keys and JWT secret keys masked.
+### Stage 2 Verification
+- Relational Models: 14 models defined with UUID keys, foreign key constraints, and indices.
+- Database Repositories: User, Document, Workflow, Execution, and Approval repositories instantiated.
+- Database Health Check: `check_database_health()` returning dialect, latency, and pgvector extension status.
+- Documentation: Created `docs/DATABASE_SETUP.md`.
+
 
