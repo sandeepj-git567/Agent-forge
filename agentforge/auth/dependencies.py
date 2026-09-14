@@ -70,6 +70,22 @@ def get_current_user(
     return user
 
 
+def get_current_user_optional(
+    token: str | None = Depends(oauth2_scheme),
+    db: Session = Depends(get_db)
+) -> User | None:
+    """
+    FastAPI dependency to optionally extract authenticated user if Bearer token is provided.
+    Returns None if token is absent or invalid without raising 401 error.
+    """
+    if not token:
+        return None
+    try:
+        return get_current_user(token=token, db=db)
+    except HTTPException:
+        return None
+
+
 def require_role(required_role: UserRole) -> Callable[..., User]:
     """
     Factory dependency enforcing minimum Role-Based Access Control (RBAC) role level.

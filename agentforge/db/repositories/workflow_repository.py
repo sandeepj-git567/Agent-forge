@@ -113,3 +113,23 @@ class WorkflowRepository:
         self.db.commit()
         self.db.refresh(req)
         return req
+
+    def get_approval_request(self, approval_id: str) -> ApprovalRequest | None:
+        """Fetch approval request by primary key ID."""
+        return self.db.query(ApprovalRequest).filter(ApprovalRequest.id == approval_id).first()
+
+    def update_approval_status(
+        self,
+        approval_id: str,
+        status: str,
+        approved_by: str | None = None
+    ) -> ApprovalRequest | None:
+        """Approve or reject a pending approval request."""
+        req = self.get_approval_request(approval_id)
+        if req:
+            req.status = status
+            if approved_by:
+                req.approved_by = approved_by
+            self.db.commit()
+            self.db.refresh(req)
+        return req

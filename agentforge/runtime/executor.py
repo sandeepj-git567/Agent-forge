@@ -296,4 +296,5 @@ class AgentExecutor:
 
 
 default_agent_executor = AgentExecutor()
+agent_runtime_executor = default_agent_executor
 
