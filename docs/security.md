@@ -17,6 +17,15 @@ AgentForge AI is engineered with defense-in-depth security principles.
 - Private Chain-of-Thought (`<thinking>`) tags are scrubbed.
 
 ## 4. Auth & Role-Based Access Control
-- Passwords are stored using **bcrypt** salt hashing (`passlib`).
+- Passwords are stored using PBKDF2 salt hashing (`agentforge.auth.jwt`).
 - JWT tokens with HMAC-SHA256 signatures protect API endpoints.
 - User roles: `ADMIN`, `ENGINEER`, `USER`, `VIEWER`.
+
+### Generating Production JWT Secret
+To generate a cryptographically secure 64-byte secret key for production, run:
+
+```powershell
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+```
+Set the resulting token as `JWT_SECRET` in your production environment or `.env` file.
+

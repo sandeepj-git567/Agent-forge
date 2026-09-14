@@ -23,7 +23,7 @@ async def get_health() -> HealthResponse:
 @router.get("/health/ready", response_model=ReadinessResponse)
 async def get_readiness() -> ReadinessResponse:
     """Check application readiness including tool registry and ADK configuration status."""
-    adk_status = "configured" if settings.is_api_key_configured else "offline_fallback"
+    adk_status = "configured" if settings.is_gemini_configured else "offline_fallback"
     tools_count = len(default_tool_registry.list_tools())
 
     return ReadinessResponse(
@@ -34,3 +34,10 @@ async def get_readiness() -> ReadinessResponse:
             "guardrails": "active"
         }
     )
+
+
+@router.get("/health/config")
+async def get_config_status() -> dict:
+    """Return safe configuration status without exposing secrets."""
+    return settings.get_safe_config_summary()
+

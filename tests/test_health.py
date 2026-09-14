@@ -23,3 +23,16 @@ def test_readiness_endpoint():
     assert data["status"] == "ready"
     assert "services" in data
     assert "tools_registry" in data["services"]
+
+
+def test_config_endpoint():
+    response = client.get("/api/v1/health/config")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["app_name"] == "AgentForge AI"
+    assert "providers" in data
+    # Ensure sensitive fields are never exposed
+    assert "JWT_SECRET" not in data
+    assert "GOOGLE_API_KEY" not in data
+    assert "DATABASE_URL" not in data
+
