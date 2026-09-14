@@ -2,8 +2,8 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-
 
 from agentforge.api.routes.auth import router as auth_router
 from agentforge.api.routes.documents import router as documents_router
@@ -55,18 +55,25 @@ app.include_router(rag_router, prefix="/api/v1")
 app.include_router(workflows_router, prefix="/api/v1")
 app.include_router(evaluations_router, prefix="/api/v1")
 
-# Serve React Frontend Dashboard static files if built
-frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
-if os.path.exists(frontend_dist):
-    app.mount("/dashboard", StaticFiles(directory=frontend_dist, html=True), name="dashboard")
-
 
 @app.get("/")
 async def root():
-    """Root landing endpoint."""
-    return {
-        "message": f"Welcome to {settings.APP_NAME}",
-        "docs": "/docs",
-        "health": "/api/v1/health",
-        "dashboard": "/dashboard"
-    }
+    """Root landing endpoint redirecting to dashboard."""
+    return RedirectResponse(url="/dashboard/")
+
+
+# Serve React Frontend Dashboard static files if built
+frontend_dist = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist"))
+
+if os.path.exists(frontend_dist):
+    assets_dir = os.path.join(frontend_dist, "assets")
+    if os.path.exists(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="root_assets")
+        app.mount("/dashboard/assets", StaticFiles(directory=assets_dir), name="dashboard_assets")
+
+    @app.get("/dashboard")
+    async def dashboard_redirect():
+        """Ensure trailing slash so relative SPA asset paths resolve correctly."""
+        return RedirectResponse(url="/dashboard/")
+
+    app.mount("/dashboard", StaticFiles(directory=frontend_dist, html=True), name="dashboard")
