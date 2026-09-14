@@ -42,3 +42,10 @@ async def test_execution_guardrail_rejection():
     assert response["status"] == "failed"
     assert len(response["errors"]) > 0
     assert "dangerous request" in response["errors"][0].lower()
+
+
+def test_task_cancellation():
+    executor = AgentExecutor()
+    cancelled = executor.cancel_task("run-fake-999")
+    assert cancelled is False
+

@@ -4,7 +4,9 @@ Agent Runtime Executor Engine for AgentForge AI
 Coordinates Google ADK 2.9.0 runner execution, session state, tool invocations,
 and fallback execution pipelines with complete guardrail coverage and trace recording.
 """
+import asyncio
 import logging
+import time
 from typing import Any
 
 from google.adk import Runner
@@ -23,13 +25,15 @@ logger = logging.getLogger("agentforge.executor")
 
 
 class AgentExecutor:
-    """Execution engine running ADK agent pipelines with fallback & trace management."""
+    """Execution engine running ADK agent pipelines with retry, timeout, cancellation & trace management."""
 
     def __init__(self) -> None:
         self.tool_registry = default_tool_registry
         self.input_guard = default_input_guard
         self.output_guard = default_output_guard
         self.permission_guard = default_permission_guard
+        self._active_tasks: dict[str, asyncio.Task] = {}
+        self._cancelled_runs: set[str] = set()
 
     async def run_task(
         self,
@@ -41,6 +45,8 @@ class AgentExecutor:
         """
         Execute task through AgentForge AI agent orchestration.
         """
+        start_time = time.time()
+
         # 1. Guardrail Input Validation
         is_valid, err_msg, input_meta = self.input_guard.validate_task(task)
         trace = ExecutionTrace(task=task if is_valid else (task[:100] if task else ""), mode=mode)
@@ -53,10 +59,17 @@ class AgentExecutor:
             )
             trace.finish(status="failed", errors=[err_msg])
             save_trace(trace)
+            latency = round((time.time() - start_time) * 1000, 2)
             return {
                 "run_id": trace.run_id,
                 "status": "failed",
+                "answer": None,
                 "result": None,
+                "agents_used": ["guardrails"],
+                "tools_used": [],
+                "latency_ms": latency,
+                "model": settings.GOOGLE_MODEL,
+                "execution_mode": "failed",
                 "errors": trace.errors,
                 "trace": trace.model_dump()
             }
@@ -67,45 +80,112 @@ class AgentExecutor:
             safe_metadata={"mode": mode, "task_length": len(task)}
         )
 
-        # 2. Check API Key configuration
-        if settings.is_api_key_configured:
-            try:
-                adk_result = await self._run_adk_runner(task, mode, trace)
-                trace.finish(status="completed", final_output=adk_result)
+        # Register running task for cancellation support
+        current_async_task = asyncio.current_task()
+        if current_async_task:
+            self._active_tasks[trace.run_id] = current_async_task
+
+        try:
+            # 2. Check API Key configuration for real Gemini call
+            if settings.is_gemini_configured:
+                retries = 2
+                for attempt in range(retries + 1):
+                    if trace.run_id in self._cancelled_runs:
+                        break
+                    try:
+                        adk_result = await asyncio.wait_for(
+                            self._run_adk_runner(task, mode, trace),
+                            timeout=60.0
+                        )
+                        latency = round((time.time() - start_time) * 1000, 2)
+                        trace.finish(status="completed", final_output=adk_result)
+                        save_trace(trace)
+
+                        agents_used = list({e.agent for e in trace.events})
+                        tools_used = [e.tool for e in trace.events if e.tool]
+
+                        return {
+                            "run_id": trace.run_id,
+                            "status": "completed",
+                            "answer": trace.final_output,
+                            "result": trace.final_output,
+                            "agents_used": agents_used,
+                            "tools_used": tools_used,
+                            "latency_ms": latency,
+                            "model": settings.GOOGLE_MODEL,
+                            "execution_mode": "gemini",
+                            "errors": trace.errors,
+                            "trace": trace.model_dump()
+                        }
+                    except asyncio.TimeoutError:
+                        logger.warning(f"ADK runner attempt {attempt + 1} timed out after 60s.")
+                    except Exception as err:  # noqa: BLE001
+                        logger.warning(f"ADK runner attempt {attempt + 1} failed: {err}")
+                        if attempt == retries:
+                            trace.add_event(
+                                agent="root_orchestrator",
+                                event_type="adk_execution_failed",
+                                safe_metadata={"error": str(err)}
+                            )
+
+            # Check if run was cancelled during execution
+            if trace.run_id in self._cancelled_runs:
+                latency = round((time.time() - start_time) * 1000, 2)
+                trace.finish(status="cancelled", errors=["Task execution was cancelled by user."])
                 save_trace(trace)
                 return {
                     "run_id": trace.run_id,
-                    "status": "completed",
-                    "result": trace.final_output,
+                    "status": "cancelled",
+                    "answer": None,
+                    "result": None,
+                    "agents_used": ["root_orchestrator"],
+                    "tools_used": [],
+                    "latency_ms": latency,
+                    "model": settings.GOOGLE_MODEL,
+                    "execution_mode": "failed",
                     "errors": trace.errors,
                     "trace": trace.model_dump()
                 }
-            except Exception as err:  # noqa: BLE001
-                logger.warning(f"Live ADK runner encountered exception: {err}. Executing deterministic workflow.")
-                trace.add_event(
-                    agent="root_orchestrator",
-                    event_type="adk_fallback_triggered",
-                    safe_metadata={"reason": str(err)}
-                )
 
-        # 3. Fallback Deterministic Pipeline Execution (for missing key, quota error, or offline test mode)
-        trace.add_event(
-            agent="root_orchestrator",
-            event_type="api_key_missing_or_offline_fallback",
-            safe_metadata={"is_configured": settings.is_api_key_configured}
-        )
+            # 3. Fallback Deterministic Pipeline Execution (for local development or offline mode)
+            trace.add_event(
+                agent="root_orchestrator",
+                event_type="local_development_mode_executed",
+                safe_metadata={"is_configured": settings.is_gemini_configured}
+            )
 
-        sim_result = await self._run_deterministic_pipeline(task, mode, trace, has_approval, allowlist)
-        trace.finish(status="completed", final_output=sim_result)
-        save_trace(trace)
+            sim_result = await self._run_deterministic_pipeline(task, mode, trace, has_approval, allowlist)
+            latency = round((time.time() - start_time) * 1000, 2)
+            trace.finish(status="completed", final_output=sim_result)
+            save_trace(trace)
 
-        return {
-            "run_id": trace.run_id,
-            "status": "completed",
-            "result": trace.final_output,
-            "errors": trace.errors,
-            "trace": trace.model_dump()
-        }
+            agents_used = list({e.agent for e in trace.events})
+            tools_used = [e.tool for e in trace.events if e.tool]
+
+            return {
+                "run_id": trace.run_id,
+                "status": "completed",
+                "answer": trace.final_output,
+                "result": trace.final_output,
+                "agents_used": agents_used,
+                "tools_used": tools_used,
+                "latency_ms": latency,
+                "model": settings.GOOGLE_MODEL,
+                "execution_mode": "local_development",
+                "errors": trace.errors,
+                "trace": trace.model_dump()
+            }
+        finally:
+            self._active_tasks.pop(trace.run_id, None)
+
+    def cancel_task(self, run_id: str) -> bool:
+        """Cancel a running agent execution task by run_id."""
+        self._cancelled_runs.add(run_id)
+        if run_id in self._active_tasks:
+            task = self._active_tasks[run_id]
+            task.cancel()
+            return True
+        return False
 
     async def _run_adk_runner(self, task: str, mode: str, trace: ExecutionTrace) -> str:
         """Run ADK Runner using Google ADK 2.9.0 API."""
@@ -216,3 +296,4 @@ class AgentExecutor:
 
 
 default_agent_executor = AgentExecutor()
+

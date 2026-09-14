@@ -38,3 +38,12 @@ def test_post_task_run_dangerous_rejected():
 def test_get_task_trace_not_found():
     response = client.get("/api/v1/tasks/non_existent_run_id_999")
     assert response.status_code == 404
+
+
+def test_cancel_task_endpoint():
+    response = client.post("/api/v1/tasks/run_123_test/cancel")
+    assert response.status_code == 200
+    data = response.json()
+    assert "status" in data
+    assert "cancellation request recorded" in data["message"]
+

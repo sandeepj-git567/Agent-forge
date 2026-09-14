@@ -1,7 +1,7 @@
 """
 AgentForge AI FastAPI Application Entry Point
 """
-import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -14,15 +14,28 @@ from agentforge.api.routes.rag import router as rag_router
 from agentforge.api.routes.tasks import router as tasks_router
 from agentforge.api.routes.workflows import router as workflows_router
 from agentforge.config.settings import settings
+from agentforge.db.base import Base
+from agentforge.db.session import engine
 from agentforge.observability.middleware import ProductionObservabilityMiddleware
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan context manager initializing database tables on startup."""
+    # Ensure database schema is created
+    Base.metadata.create_all(bind=engine)
+    yield
+
 
 app = FastAPI(
     title=settings.APP_NAME,
     description="Enterprise AI Agent Orchestration, RAG, Workflow Automation & Evaluation Platform",
     version="1.0.0",
     docs_url="/docs",
-    openapi_url="/openapi.json"
+    openapi_url="/openapi.json",
+    lifespan=lifespan
 )
+
 
 # Production Middleware
 app.add_middleware(ProductionObservabilityMiddleware)

@@ -5,8 +5,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from agentforge.config.settings import settings
+
 
 class TaskRunRequest(BaseModel):
+
     """Payload for POST /api/v1/tasks/run"""
     task: str = Field(..., description="User task description to process", json_schema_extra={"example": "Research enterprise AI agent frameworks"})
     mode: str = Field(default="general", description="Task execution mode", json_schema_extra={"example": "research"})
@@ -17,10 +20,17 @@ class TaskRunRequest(BaseModel):
 class TaskRunResponse(BaseModel):
     """Response payload for POST /api/v1/tasks/run"""
     run_id: str = Field(..., description="Unique execution run ID")
-    status: str = Field(..., description="Execution status e.g. completed, failed, blocked")
+    status: str = Field(..., description="Execution status e.g. completed, failed, cancelled")
+    answer: str | None = Field(default=None, description="Synthesized agent answer")
     result: str | None = Field(default=None, description="Validated agent execution response")
+    agents_used: list[str] = Field(default_factory=list, description="List of sub-agent names invoked")
+    tools_used: list[str] = Field(default_factory=list, description="List of tool names executed")
+    latency_ms: float = Field(default=0.0, description="Execution latency in milliseconds")
+    model: str = Field(default=settings.GOOGLE_MODEL, description="LLM Model used")
+    execution_mode: str = Field(default="local_development", description="Execution mode: gemini, local_development, or failed")
     errors: list[str] = Field(default_factory=list, description="List of execution or guardrail errors")
     trace: dict[str, Any] = Field(default_factory=dict, description="Complete execution trace")
+
 
 
 class HealthResponse(BaseModel):
