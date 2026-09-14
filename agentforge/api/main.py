@@ -1,10 +1,9 @@
-"""
-AgentForge AI FastAPI Application Entry Point
-"""
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+
 
 from agentforge.api.routes.auth import router as auth_router
 from agentforge.api.routes.documents import router as documents_router
