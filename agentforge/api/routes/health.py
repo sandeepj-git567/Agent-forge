@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from agentforge.api.schemas import HealthResponse, ReadinessResponse
 from agentforge.config.settings import settings
+from agentforge.observability.metrics import default_telemetry_collector
 from agentforge.tools.registry import default_tool_registry
 
 router = APIRouter(tags=["Health"])
@@ -40,4 +41,11 @@ async def get_readiness() -> ReadinessResponse:
 async def get_config_status() -> dict:
     """Return safe configuration status without exposing secrets."""
     return settings.get_safe_config_summary()
+
+
+@router.get("/health/metrics")
+async def get_metrics() -> dict:
+    """Return aggregated system telemetry and performance metrics."""
+    return default_telemetry_collector.get_summary()
+
 

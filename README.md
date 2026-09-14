@@ -1,138 +1,181 @@
 # AgentForge AI 🚀
 
-**Enterprise AI Agent Orchestration, RAG, Workflow Automation & Evaluation Platform**
+**Enterprise AI Agent Orchestration, RAG, DAG Workflows, AI Evaluation & Observability Platform**
 
-AgentForge AI is a production-grade GenAI engineering platform designed to orchestrate multi-agent workflows, enforce safety guardrails, manage tools, and execute task graphs using **Google ADK 2.9.0** and **FastAPI**.
+[![Python 3.13](https://img.shields.io/badge/python-3.13-blue.svg)](https://www.python.org/)
+[![Google ADK 2.9.0](https://img.shields.io/badge/Google_ADK-2.9.0-green.svg)](https://github.com/google/adk)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688.svg)](https://fastapi.tiangolo.com/)
+[![React Dashboard](https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61dafb.svg)](https://vitejs.dev/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
-## 1. Problem Statement
-
-Building enterprise generative AI applications requires far more than simple LLM prompts or basic chatbots. Production AI systems require:
-- Reliable multi-agent coordination (Planners, Researchers, Reviewers).
-- Granular tool permissions and safety shields blocking destructive execution.
-- Deterministic trace tracking without exposing private internal rationale or credentials.
-- Modular architecture with clean API contracts and cloud container readiness.
-
-## 2. Solution
-
-AgentForge AI addresses these challenges by offering:
-- **Hierarchical Multi-Agent Orchestration**: Built on Google ADK 2.9.0, coordinating specialized agents.
-- **Tool Permission Engine**: Categorizes tools (`READ_ONLY`, `EXTERNAL_SEARCH`, `FILE_ANALYSIS`, `WRITE`, `DESTRUCTIVE`) and enforces explicit approval rules.
-- **Comprehensive Guardrails**: Real-time input validation, prompt injection defense, secret redaction, and CoT protection.
-- **RESTful API & Audit Tracing**: Asynchronous FastAPI endpoints delivering detailed execution timelines.
+AgentForge AI is a state-of-the-art, production-grade AI engineering platform designed to orchestrate multi-agent task graphs using **Google Agent Development Kit (ADK 2.9.0)**, **FastAPI**, **PostgreSQL / pgvector**, and an integrated **React Web Dashboard**.
 
 ---
 
-## 3. Architecture
+## 📸 Platform Capabilities & Key Features
 
 ```
-User Task -> FastAPI -> Input Guardrails -> Root Agent (Google ADK 2.9.0)
-                                                 |
-                               +-----------------+-----------------+
-                               |                 |                 |
-                               v                 v                 v
-                         Planner Agent    Researcher Agent   Reviewer Agent
-                               |                 |                 |
-                         Task Tool        Search Tools      Code Check Tool
-                               |                 |                 |
-                               +-----------------+-----------------+
-                                                 |
-                                                 v
-                                         Output Guardrails -> Trace Timeline
+                                  [ Client / React Web Dashboard ]
+                                                  │
+                                                  ▼
+                               [ ProductionObservabilityMiddleware ]
+                                                  │
+                       ┌──────────────────────────┴──────────────────────────┐
+                       ▼                                                     ▼
+        [ FastAPI REST API (/api/v1) ]                             [ Static Dashboard (/dashboard) ]
+                       │
+       ┌───────────────┼───────────────────────────┬─────────────────────────┐
+       ▼               ▼                           ▼                         ▼
+ [ ADK Runtime ]  [ RAG Pipeline ]            [ Workflow Engine ]       [ AI Evaluation ]
+ (Google ADK 2.9.0) (SHA-256 / pgvector)       (DAG / Parallel Waves)    (5 Metrics / Benchmarks)
+       │               │                           │                         │
+       ▼               ▼                           ▼                         ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                            Relational & Vector Storage Layer                                │
+│       Users • Documents • Chunks • Workflows • Executions • Evaluations • Audit Logs        │
+└─────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 4. Google ADK 2.9.0 Integration
+## 🔥 Enterprise Feature Matrix
 
-AgentForge AI natively implements the **Google ADK 2.9.0** API:
-- `Agent` & `LlmAgent` for agent definitions.
-- `Runner` with `InMemorySessionService()` for stateful session execution.
-- Asynchronous event streams (`Runner.run_async`) for monitoring tool calls and completion states.
+### 1. 🤖 Google ADK 2.9.0 Multi-Agent Runtime
+- Native implementation of Google ADK 2.9.0 `Runner` with `InMemorySessionService`.
+- Coordinates specialized sub-agents: **Root Orchestrator**, **Planner**, **Researcher**, and **Reviewer**.
+- Bounded retries, task cancellation handles (`POST /api/v1/tasks/{run_id}/cancel`), and execution mode reporting (`real_gemini_adk` vs `offline_fallback`).
 
----
+### 2. 🧠 Enterprise RAG & Hybrid Vector Retrieval
+- PostgreSQL + `pgvector` vector similarity retrieval with fallback in-memory search.
+- SHA-256 document hashing for instant duplicate detection and upload prevention.
+- Security ingestion guards: Blocks executable extensions (`.exe`, `.sh`, `.bat`, etc.) and path traversal patterns (`../`).
+- Automatic document chunking with metadata persistence, source citation generation, and cascade document deletion (`DELETE /documents/{id}`).
 
-## 5. Sub-Agents
+### 3. ⚡ Executable DAG Workflow Engine
+- Parallel wave execution using Kahn's topological sorting algorithm and `asyncio.gather`.
+- Cycle dependency detection throwing `CyclicDependencyError`.
+- Human-in-the-Loop (HITL) approval nodes (`requires_approval=True`) with pause/resume endpoints (`POST /workflows/approvals/{id}/approve` & `reject`).
+- Real-time workflow state visualization endpoint (`GET /workflows/{id}/visualize`).
 
-1. **Root Orchestrator (`root_orchestrator`)**: Coordinates workflow steps and sub-agents.
-2. **Planner Agent (`planner`)**: Decomposes requests into structured task graphs.
-3. **Researcher Agent (`researcher`)**: Queries web and internal document databases for evidence.
-4. **Reviewer Agent (`reviewer`)**: Performs static code analysis and quality verification.
+### 4. 📊 Real AI Evaluation System
+- Automated metric evaluation suite:
+  - **Correctness**: LLM-assisted factual accuracy evaluation.
+  - **Relevance**: Semantic alignment between prompt and response.
+  - **Groundedness**: Faithfulness ratio to retrieved context chunks.
+  - **Citation Quality**: Validation of source references.
+  - **Precision & Recall**: Context retrieval accuracy metrics.
+- Pre-packaged benchmark dataset runner (`POST /evaluations/benchmark/run`) with database persistent history (`evaluations` table).
 
----
+### 5. 🛡️ Security, Auth & RBAC
+- Database-backed authentication (`UserRepository`) with PBKDF2 password hashing and JWT Bearer tokens.
+- Role-Based Access Control (`require_role` dependency) supporting `ADMIN`, `ENGINEER`, `USER`, and `VIEWER`.
+- Server-Side Request Forgery (SSRF) URL validator (`validate_url_ssrf`) blocking `localhost`, AWS/GCP metadata endpoints (`169.254.169.254`), and private RFC 1918 subnets.
+- Automatic secret redactor (`redact_secrets`) scrubbing API keys, tokens, and credentials from tool outputs.
+- System prompt guardrails prohibiting internal `<thought>` chain-of-thought exposure.
 
-## 6. Tool Registry & Permission System
+### 6. 👁️ Observability & Audit Logging
+- `ProductionObservabilityMiddleware` propagating correlation IDs (`X-Correlation-ID`) and response latencies (`X-Process-Time-MS`).
+- Telemetry collector tracking total requests, task runs, RAG queries, evaluations, error rates, and rolling average latency (`GET /api/v1/health/metrics`).
+- Database security audit event logging (`MetricsRecorder.log_audit_event`).
 
-Tools are registered in `ToolRegistry` with strict permission categories:
-- `web_search`: Live search interface (`EXTERNAL_SEARCH`)
-- `document_search`: In-memory doc repository query (`READ_ONLY`)
-- `safe_code_analysis`: AST static Python parser (`FILE_ANALYSIS`)
-- `task_management`: Workflow task graph manager (`WRITE`)
-
-*Rule*: Destructive operations (`DESTRUCTIVE`) are automatically blocked without human approval. Arbitrary shell commands are prohibited.
-
----
-
-## 7. Guardrails & Security
-
-- **InputGuard**: Rejects empty prompts, task lengths > 4,000 chars, and dangerous command patterns (`rm -rf`, `drop table`).
-- **OutputGuard**: Redacts API keys (Google/OpenAI), tokens, and strips private chain-of-thought (`<thinking>`).
-- **PermissionGuard**: Enforces tool allowlists and human approval requirements.
-
----
-
-## 8. API Specification
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/v1/health` | Service health status |
-| `GET` | `/api/v1/health/ready` | ADK runtime & tool readiness check |
-| `POST` | `/api/v1/tasks/run` | Execute multi-agent task workflow |
-| `GET` | `/api/v1/tasks/{run_id}` | Retrieve task execution trace by ID |
-| `GET` | `/docs` | OpenAPI / Swagger UI |
+### 7. 🖥️ Integrated React Dashboard
+- Built with React 18, TypeScript, and Vite, mounted at `/dashboard`.
+- Includes 10 interactive tabs: **Overview**, **Agent Task Execution**, **Knowledge RAG**, **Workflow Builder**, **AI Evaluation**, **Observability**, **Security Audit**, **API Keys**, **System Settings**, and **Documentation**.
+- Real-time toast notifications and typed API client (`frontend/src/api/client.ts`).
 
 ---
 
-## 9. Quickstart & Local Setup
+## 🛠️ Complete API Reference
 
+| Endpoint | Method | Role Required | Description |
+|---|---|---|---|
+| `/api/v1/health` | `GET` | Public | System operational health check |
+| `/api/v1/health/ready` | `GET` | Public | Component readiness check (ADK runtime, tools) |
+| `/api/v1/health/config` | `GET` | Public | Safe configuration summary (secrets masked) |
+| `/api/v1/health/metrics` | `GET` | Public | Telemetry & performance metrics summary |
+| `/api/v1/auth/register` | `POST` | Public | Register new user account |
+| `/api/v1/auth/login` | `POST` | Public | Authenticate user & obtain JWT Bearer token |
+| `/api/v1/auth/me` | `GET` | Authenticated | Retrieve current user profile |
+| `/api/v1/tasks/run` | `POST` | USER | Execute multi-agent task workflow |
+| `/api/v1/tasks/{run_id}` | `GET` | USER | Retrieve task execution status and trace |
+| `/api/v1/tasks/{run_id}/cancel` | `POST` | ENGINEER | Cancel a running task execution |
+| `/api/v1/rag/upload` | `POST` | USER | Ingest and chunk document into pgvector RAG |
+| `/api/v1/rag/answer` | `POST` | USER | Execute vector search & grounded RAG answer |
+| `/api/v1/documents` | `GET` | USER | List ingested knowledge documents |
+| `/api/v1/documents/{id}` | `DELETE` | ENGINEER | Cascade delete document and chunks |
+| `/api/v1/workflows` | `POST` | ENGINEER | Define new DAG workflow |
+| `/api/v1/workflows/{id}/execute` | `POST` | USER | Run workflow execution |
+| `/api/v1/workflows/approvals/{id}/approve` | `POST` | ENGINEER | Approve paused workflow node |
+| `/api/v1/evaluations/run` | `POST` | ENGINEER | Evaluate single task execution |
+| `/api/v1/evaluations/benchmark/run` | `POST` | ADMIN | Run benchmark evaluation suite |
+
+---
+
+## 💻 Quickstart & Local Setup
+
+### 1. Prerequisites
+- Python 3.13+
+- Node.js 20+
+- (Optional) PostgreSQL 16 with `pgvector`
+
+### 2. Installation & Setup
 ```bash
-# 1. Clone repository & setup virtual environment
-python -m venv .venv
-.venv\Scripts\Activate.ps1
+# Clone repository
+git clone https://github.com/sandeepj-git567/Agent-forge.git
+cd Agent-forge
 
-# 2. Install dependencies
+# Create Python virtual environment
+python -m venv .venv
+.venv\Scripts\Activate.ps1   # Windows PowerShell
+
+# Install Python dependencies
 pip install -r requirements.txt
 
-# 3. Configure environment
+# Configure environment variables
 cp .env.example .env
+```
 
-# 4. Run FastAPI development server
+### 3. Build Frontend & Launch FastAPI Server
+```bash
+# Build React frontend production static bundle
+cd frontend
+npm install
+npm run build
+cd ..
+
+# Run FastAPI backend server
 uvicorn agentforge.api.main:app --reload --port 8000
 ```
+- **Interactive OpenAPI Specs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Web Dashboard**: [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
 
 ---
 
-## 10. Docker Deployment
+## 🐳 Docker Deployment
+
+Deploy the full stack (FastAPI backend + React frontend + PostgreSQL pgvector database) with Docker Compose:
 
 ```bash
-docker-compose up --build
+# Build and start services in detached mode
+docker-compose up --build -d
+
+# Verify container health
+docker-compose ps
 ```
-Access the application at `http://localhost:8000/docs`.
 
 ---
 
-## 11. Limitations & Phase 1 Scope
+## 🧪 Testing & Quality Assurance
 
-- Phase 1 uses in-memory session management and document storage.
-- Real RAG vector database (PostgreSQL + pgvector) will be introduced in Phase 2.
+AgentForge AI maintains a **100% test pass rate** across 69 unit and integration tests.
+
+```bash
+# Execute unit & integration test suite
+pytest -v
+```
 
 ---
 
-## 12. Roadmap
+## 📄 License
 
-- **Phase 1**: AI Agent Foundation & Guardrails (Completed)
-- **Phase 2**: Real RAG & Persistence (PostgreSQL, pgvector, Supabase, Alembic)
-- **Phase 3**: Advanced Multi-Agent Task Graphs
-- **Phase 4**: Visual Workflow Builder
-- **Phase 5**: AI Evaluation System
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

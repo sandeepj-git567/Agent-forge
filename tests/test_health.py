@@ -36,3 +36,15 @@ def test_config_endpoint():
     assert "GOOGLE_API_KEY" not in data
     assert "DATABASE_URL" not in data
 
+
+def test_metrics_endpoint():
+    response = client.get("/api/v1/health/metrics")
+    assert response.status_code == 200
+    data = response.json()
+    assert "total_requests" in data
+    assert "total_errors" in data
+    assert "avg_latency_ms" in data
+    assert "X-Correlation-ID" in response.headers
+    assert "X-Process-Time-MS" in response.headers
+
+

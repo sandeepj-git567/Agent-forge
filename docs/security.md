@@ -1,31 +1,49 @@
-# Security Architecture & Audit Hardening Guide
+# Security Policy & Guardrails — AgentForge AI
 
-AgentForge AI is engineered with defense-in-depth security principles.
+## Overview
+AgentForge AI enforces multi-layered enterprise security controls across application configuration, authentication & RBAC, RAG pipeline ingestion, tool execution, telemetry, and automated CI/CD pipeline scans.
 
-## 1. Input & File Upload Defense
-- **Path Traversal Shield**: File upload paths are stripped using `os.path.basename` and validated against directory traversal patterns (`../`).
-- **File Size Limit**: Strictly capped at 10 MB per file.
-- **Dangerous Command Filters**: Pattern matching detects command injection attempts (`rm -rf`, `drop table`, `eval`).
+---
 
-## 2. Tool Sandbox & Permission Rules
-- **Permission Categorization**: `READ_ONLY`, `EXTERNAL_SEARCH`, `FILE_ANALYSIS`, `WRITE`, `DESTRUCTIVE`.
-- **Destructive Operation Blocking**: Tools classified as `DESTRUCTIVE` are automatically blocked unless `has_approval=True` is provided.
-- **Zero Shell Execution**: No arbitrary command execution tools exist or can be registered.
+## 1. Security Architecture Matrix
 
-## 3. Secret Protection & Output Redaction
-- Regex scanners automatically sanitize Google API keys, OpenAI API keys, Bearer tokens, and passwords prior to returning responses to clients.
-- Private Chain-of-Thought (`<thinking>`) tags are scrubbed.
+| Domain | Control Mechanism | Implementation |
+|---|---|---|
+| **Secret Management** | Pydantic Settings v2 + Masking | `agentforge/config/settings.py` masks API keys & JWT secrets on serialization |
+| **Authentication** | PBKDF2 Password Hashing + JWT | `agentforge/auth/dependencies.py` enforces signed Bearer token validation |
+| **RBAC** | `require_role()` Dependency | Enforces `ADMIN`, `ENGINEER`, `USER`, and `VIEWER` permission boundaries |
+| **Tool Execution SSRF Guard** | `validate_url_ssrf()` | Blocks `localhost`, `127.0.0.1`, AWS/GCP metadata APIs (`169.254.169.254`), and private subnets |
+| **Tool Execution Redaction** | `redact_secrets()` | Replaces API keys, tokens, and private headers in tool outputs with `[REDACTED_SECRET]` |
+| **RAG Ingestion Guards** | File Extension & Path Traversal Guards | Rejects executable file uploads (`.exe`, `.sh`, `.bat`, etc.) and path traversal patterns |
+| **RAG Deduplication** | SHA-256 Content Hashing | Prevents duplicate document chunking and vector storage bloating |
+| **CoT Redaction** | System Prompt Guardrail | Strictly prevents logging or returning agent `<thought>` chain-of-thought steps |
+| **Audit Logging** | `AuditEvent` Database Persistence | `MetricsRecorder.log_audit_event()` persists security operations to DB |
+| **CI/CD Security Scan** | Bandit Static Analysis | `.github/workflows/ci.yml` runs automated security checks on every pull request |
 
-## 4. Auth & Role-Based Access Control
-- Passwords are stored using PBKDF2 salt hashing (`agentforge.auth.jwt`).
-- JWT tokens with HMAC-SHA256 signatures protect API endpoints.
-- User roles: `ADMIN`, `ENGINEER`, `USER`, `VIEWER`.
+---
 
-### Generating Production JWT Secret
-To generate a cryptographically secure 64-byte secret key for production, run:
+## 2. SSRF Guardrail Policy (`validate_url_ssrf`)
 
-```powershell
-python -c "import secrets; print(secrets.token_urlsafe(64))"
-```
-Set the resulting token as `JWT_SECRET` in your production environment or `.env` file.
+The `web_search` and HTTP fetch tool components intercept and validate target URLs before sending requests.
 
+### Blocked Destinations:
+- Loopback addresses (`localhost`, `127.0.0.1`, `::1`)
+- Link-local cloud metadata endpoints (`169.254.169.254`)
+- Private RFC 1918 subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`)
+
+---
+
+## 3. Secret Redaction Policy (`redact_secrets`)
+
+All tool outputs are sanitized prior to returning context to the agent runtime or storing execution logs. Key patterns matched include:
+- `AIzaSy...` (Google API Keys)
+- `sk-...` (OpenAI Keys)
+- `ghp_...` (GitHub Personal Access Tokens)
+- `eyJ...` (JWT Tokens)
+- Dictionary keys matching `password`, `secret`, `api_key`, `token`
+
+---
+
+## 4. Reporting Security Vulnerabilities
+
+To report security issues or vulnerability findings, please create an issue or contact the security maintainers at `security@agentforge-ai.org`.
