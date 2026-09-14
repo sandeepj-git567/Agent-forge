@@ -97,9 +97,9 @@ def test_rag_search_api():
     response = client.post("/api/v1/rag/search", json=req_body)
     assert response.status_code == 200
     data = response.json()
-    assert "rewritten_query" in data
-    assert "confidence_score" in data
-    assert "citations" in data
+    assert "query" in data
+    assert "embedding_provider" in data
+    assert "fallback_used" in data
 
 
 def test_rag_ask_api():
@@ -113,3 +113,53 @@ def test_rag_ask_api():
     assert "answer" in data
     assert "confidence_score" in data
     assert "citations" in data
+
+
+def test_rag_answer_api():
+    req_body = {
+        "question": "What is AgentForge AI?",
+        "top_k": 3
+    }
+    response = client.post("/api/v1/rag/answer", json=req_body)
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert "sources" in data
+    assert "embedding_provider" in data
+    assert "retrieval_count" in data
+    assert "fallback_used" in data
+
+
+def test_document_upload_executable_blocked():
+    file_content = b"echo 'hacked'"
+    files = {"file": ("malicious_script.sh", io.BytesIO(file_content), "application/x-sh")}
+
+    response = client.post("/api/v1/documents/upload", files=files)
+    assert response.status_code == 400
+    assert "prohibited" in response.json()["detail"].lower() or "unsupported" in response.json()["detail"].lower()
+
+
+def test_document_get_and_delete_api():
+    file_content = b"Unique document content for lifecycle testing."
+    files = {"file": ("lifecycle.txt", io.BytesIO(file_content), "text/plain")}
+
+    # 1. Upload
+    up_res = client.post("/api/v1/documents/upload", files=files)
+    assert up_res.status_code == 201
+    doc_id = up_res.json()["document"]["doc_id"]
+
+    # 2. Get document inspect
+    get_res = client.get(f"/api/v1/documents/{doc_id}")
+    assert get_res.status_code == 200
+    assert get_res.json()["doc_id"] == doc_id
+    assert get_res.json()["filename"] == "lifecycle.txt"
+
+    # 3. Delete document
+    del_res = client.delete(f"/api/v1/documents/{doc_id}")
+    assert del_res.status_code == 200
+    assert del_res.json()["status"] == "success"
+
+    # 4. Verify 404 after deletion
+    get_after = client.get(f"/api/v1/documents/{doc_id}")
+    assert get_after.status_code == 404
+

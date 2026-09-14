@@ -57,16 +57,36 @@ class InputGuard:
 
     def validate_file_upload(self, filename: str, file_size: int) -> tuple[bool, str]:
         """
-        Validate document upload filename and file size limits.
-        Protects against path traversal and malicious filenames.
+        Validate document upload filename, extension, and file size limits.
+        Protects against path traversal, executable uploads, and malicious filenames.
         """
         if not filename or not filename.strip():
             return False, "Filename cannot be empty."
 
+        clean_name = filename.strip()
+
         # Path traversal defense
-        base_name = os.path.basename(filename)
-        if base_name != filename or ".." in filename or "/" in filename or "\\" in filename:
+        base_name = os.path.basename(clean_name)
+        if base_name != clean_name or ".." in clean_name or "/" in clean_name or "\\" in clean_name:
             return False, "Malicious filename or path traversal sequence detected."
+
+        # Executable & suspicious file extension checks
+        forbidden_extensions = {
+            ".exe", ".dll", ".bat", ".cmd", ".sh", ".ps1", ".py", ".js",
+            ".vbs", ".jar", ".php", ".asp", ".aspx", ".cgi", ".pl", ".rb",
+            ".msi", ".scr", ".com", ".pif", ".application", ".gadget"
+        }
+        
+        lower_name = clean_name.lower()
+        for ext in forbidden_extensions:
+            if lower_name.endswith(ext) or f"{ext}." in lower_name:
+                return False, f"Executable file extension '{ext}' is strictly prohibited."
+
+        # Allowed document extensions check
+        allowed_extensions = {".pdf", ".docx", ".txt", ".md", ".markdown"}
+        ext = os.path.splitext(lower_name)[1]
+        if ext not in allowed_extensions:
+            return False, f"Unsupported file extension '{ext}'. Supported formats: PDF, DOCX, TXT, Markdown."
 
         if file_size <= 0:
             return False, "Uploaded file is empty (0 bytes)."
@@ -75,6 +95,7 @@ class InputGuard:
             return False, f"File size ({file_size / (1024*1024):.2f} MB) exceeds maximum limit of {MAX_FILE_SIZE_BYTES / (1024*1024):.0f} MB."
 
         return True, ""
+
 
 
 default_input_guard = InputGuard()
