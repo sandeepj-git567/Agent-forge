@@ -1,8 +1,10 @@
 """
 AgentForge AI FastAPI Application Entry Point
 """
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from agentforge.api.routes.auth import router as auth_router
 from agentforge.api.routes.documents import router as documents_router
@@ -41,6 +43,11 @@ app.include_router(rag_router, prefix="/api/v1")
 app.include_router(workflows_router, prefix="/api/v1")
 app.include_router(evaluations_router, prefix="/api/v1")
 
+# Serve React Frontend Dashboard static files if built
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.exists(frontend_dist):
+    app.mount("/dashboard", StaticFiles(directory=frontend_dist, html=True), name="dashboard")
+
 
 @app.get("/")
 async def root():
@@ -48,5 +55,6 @@ async def root():
     return {
         "message": f"Welcome to {settings.APP_NAME}",
         "docs": "/docs",
-        "health": "/api/v1/health"
+        "health": "/api/v1/health",
+        "dashboard": "/dashboard"
     }
