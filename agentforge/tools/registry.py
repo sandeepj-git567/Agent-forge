@@ -3,11 +3,13 @@ Central Tool Registry and Authorization Engine for AgentForge AI
 """
 from typing import Any
 
+from agentforge.guardrails.input_guard import redact_secrets, validate_url_ssrf
 from agentforge.tools.base import PermissionCategory, ToolDefinition
 from agentforge.tools.code_analysis import safe_code_analysis
 from agentforge.tools.doc_search import document_search
 from agentforge.tools.task_manager import task_management
 from agentforge.tools.web_search import web_search
+from agentforge.tools.workflow_planning import workflow_planning
 
 
 class ToolRegistry:
@@ -45,7 +47,7 @@ class ToolRegistry:
         allowlist: list[str] | None = None
     ) -> dict[str, Any]:
         """
-        Execute tool with permission checks and allowlist validation.
+        Execute tool with permission checks, SSRF URL validation, approval guards, and output secret redaction.
         """
         tool = self.get_tool(name)
         if not tool:
@@ -55,16 +57,27 @@ class ToolRegistry:
         if allowlist is not None and name not in allowlist:
             return {"status": "error", "error": f"Tool '{name}' is not permitted by execution allowlist."}
 
-        # Permission check: Destructive action blocking
-        if tool.permission_category == PermissionCategory.DESTRUCTIVE and not has_approval:
+        # Permission check: Destructive action or required approval blocking
+        if (tool.permission_category == PermissionCategory.DESTRUCTIVE or tool.requires_approval) and not has_approval:
             return {
                 "status": "blocked",
-                "error": f"Tool '{name}' requires explicit approval for DESTRUCTIVE operations."
+                "error": f"Tool '{name}' requires explicit approval for operations in category '{tool.permission_category.value}'."
             }
 
+        # SSRF URL Validation Guardrail
+        for k, v in kwargs.items():
+            if isinstance(v, str) and (v.startswith("http://") or v.startswith("https://") or "url" in k.lower()):
+                is_valid_url, ssrf_err = validate_url_ssrf(v)
+                if not is_valid_url:
+                    return {
+                        "status": "blocked",
+                        "error": f"Tool execution blocked by SSRF Security Guardrail: {ssrf_err}"
+                    }
+
         try:
-            result = tool.execute(**kwargs)
-            return {"status": "success", "result": result}
+            raw_result = tool.execute(**kwargs)
+            sanitized_result = redact_secrets(raw_result)
+            return {"status": "success", "result": sanitized_result}
         except Exception as err:  # noqa: BLE001
             return {"status": "error", "error": f"Tool '{name}' execution failed: {err!s}"}
 
@@ -108,6 +121,16 @@ class ToolRegistry:
                 input_schema={"action": "string", "task_id": "string", "title": "string"},
                 output_schema={"status": "string", "task": "object"},
                 func=task_management
+            )
+        )
+        self.register(
+            ToolDefinition(
+                name="workflow_planning",
+                description="Generate structured workflow graph plan from target goal.",
+                permission_category=PermissionCategory.WRITE,
+                input_schema={"goal": "string", "max_steps": "integer"},
+                output_schema={"status": "string", "steps": "array"},
+                func=workflow_planning
             )
         )
 

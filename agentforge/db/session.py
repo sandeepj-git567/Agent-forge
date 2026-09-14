@@ -8,6 +8,7 @@ from typing import Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from agentforge.config.settings import settings
 from agentforge.db.base import Base
@@ -22,6 +23,8 @@ engine_kwargs: dict[str, Any] = {
 
 if DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+    if DATABASE_URL in ("sqlite:///:memory:", "sqlite://"):
+        engine_kwargs["poolclass"] = StaticPool
 else:
     # PostgreSQL connection pooling defaults
     engine_kwargs.update({
@@ -38,6 +41,20 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def init_db() -> None:
+    """Initialize database schema, ensuring models are registered first."""
+    import agentforge.db.models  # noqa: F401
+    try:
+        Base.metadata.create_all(bind=engine)
+    except Exception:
+        pass
+
+
+# Auto-create tables on module import
+init_db()
+
 
 
 def get_db() -> Generator[Session, None, None]:

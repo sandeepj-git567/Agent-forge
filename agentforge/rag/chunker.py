@@ -12,7 +12,7 @@ class TextChunk(BaseModel):
     chunk_index: int
     content: str
     chunk_hash: str
-    token_count: int
+    token_count: int = 0
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

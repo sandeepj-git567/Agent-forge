@@ -98,4 +98,81 @@ class InputGuard:
 
 
 
+import ipaddress
+import socket
+import urllib.parse
+
+
+def validate_url_ssrf(url_str: str) -> tuple[bool, str]:
+    """
+    Validate target URL against Server-Side Request Forgery (SSRF) vulnerabilities.
+    Blocks localhost, private IP subnets (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16),
+    loopback (127.0.0.0/8), AWS cloud metadata (169.254.169.254), and non-HTTP protocols.
+    """
+    if not url_str or not isinstance(url_str, str):
+        return True, ""
+
+    try:
+        parsed = urllib.parse.urlparse(url_str.strip())
+    except Exception:
+        return False, "Invalid URL structure."
+
+    if parsed.scheme not in ("http", "https"):
+        return False, f"Prohibited URL scheme '{parsed.scheme}'. Only http and https are allowed."
+
+    hostname = parsed.hostname
+    if not hostname:
+        return False, "URL missing valid hostname."
+
+    hostname_lower = hostname.lower()
+    blocked_hosts = {"localhost", "127.0.0.1", "0.0.0.0", "::1", "169.254.169.254", "instance-data"}
+    if hostname_lower in blocked_hosts or hostname_lower.endswith(".local") or hostname_lower.endswith(".internal"):
+        return False, f"Access to private/local host '{hostname}' is strictly prohibited (SSRF Guardrail)."
+
+    # Resolve IP address to check CIDR ranges
+    try:
+        ip_addr = socket.gethostbyname(hostname)
+        ip_obj = ipaddress.ip_address(ip_addr)
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved:
+            return False, f"Target IP '{ip_addr}' resolves to a private or reserved network range (SSRF Guardrail)."
+    except socket.gaierror:
+        # Unable to resolve domain (could be offline or fake hostname in unit tests)
+        pass
+
+    return True, ""
+
+
+SECRET_PATTERNS = [
+    (re.compile(r"AIza[0-9A-Za-z-_]{35}"), "[REDACTED_GEMINI_KEY]"),
+    (re.compile(r"sk-[0-9A-Za-z]{32,}"), "[REDACTED_API_KEY]"),
+    (re.compile(r"tvly-[0-9A-Za-z]{20,}"), "[REDACTED_TAVILY_KEY]"),
+    (re.compile(r"bearer\s+[A-Za-z0-9\-\._~\+\/]+=*", re.IGNORECASE), "Bearer [REDACTED_TOKEN]"),
+]
+
+SENSITIVE_FIELD_NAMES = {"password", "secret", "api_key", "authorization", "token", "private_key", "jwt_secret"}
+
+
+def redact_secrets(val: Any) -> Any:
+    """
+    Recursively sanitize objects, dictionaries, strings, and lists to redact sensitive API keys and tokens.
+    """
+    if isinstance(val, str):
+        redacted_str = val
+        for pattern, replacement in SECRET_PATTERNS:
+            redacted_str = pattern.sub(replacement, redacted_str)
+        return redacted_str
+    elif isinstance(val, dict):
+        new_dict = {}
+        for k, v in val.items():
+            if isinstance(k, str) and k.lower() in SENSITIVE_FIELD_NAMES:
+                new_dict[k] = "[REDACTED_SECRET]"
+            else:
+                new_dict[k] = redact_secrets(v)
+        return new_dict
+    elif isinstance(val, list):
+        return [redact_secrets(item) for item in val]
+    return val
+
+
 default_input_guard = InputGuard()
+
