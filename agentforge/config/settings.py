@@ -58,6 +58,12 @@ class Settings(BaseSettings):
         return not (k.startswith("your_") or "placeholder" in k or "your-api-key" in k)
 
     @property
+    def is_api_key_configured(self) -> bool:
+        """Alias for is_gemini_configured."""
+        return self.is_gemini_configured
+
+
+    @property
     def is_postgres_configured(self) -> bool:
         """Return True if DATABASE_URL points to PostgreSQL."""
         if not self.DATABASE_URL:
