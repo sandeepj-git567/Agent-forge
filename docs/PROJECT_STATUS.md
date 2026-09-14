@@ -1,6 +1,6 @@
 # Project Status Tracker — AgentForge AI
 
-## Current Status: STAGE 5 COMPLETED (TOOL EXECUTION & SECURITY) 🟢
+## Current Status: STAGE 6 COMPLETED (PRODUCTION AUTHENTICATION & RBAC) 🟢
 
 ### Stage Progress Overview
 
@@ -10,8 +10,8 @@
 - `[x]` **Stage 3 — Real pgvector RAG Pipeline**: Implemented SHA-256 duplicate detection, file upload security guards (blocking executables, path traversal, double extensions), database metadata & chunk persistence, `POST /rag/answer` with explicit `sources` citations and `fallback_used` indicator, `GET /documents/{id}`, and `DELETE /documents/{id}` cascade deletion.
 - `[x]` **Stage 4 — Real Gemini & Google ADK Execution**: Built Google ADK 2.9.0 runtime runner integration (`Runner` with `InMemorySessionService`), task cancellation handle (`POST /tasks/{run_id}/cancel`), bounded retries, timeout handling, and latency & execution mode metadata reporting.
 - `[x]` **Stage 5 — Real Tool Execution & Security**: Registered 5 core tools (`web_search`, `document_search`, `safe_code_analysis`, `task_management`, `workflow_planning`), implemented SSRF URL validation guardrail, output secret redaction, permission level & human approval controls, and created `docs/TOOL_SECURITY.md`.
-- `[ ]` **Stage 6 — Production Authentication & RBAC**: Next up.
-- `[ ]` **Stage 7 — Executable Workflow Engine**
+- `[x]` **Stage 6 — Production Authentication & RBAC**: Implemented database-backed authentication (`UserRepository`), PBKDF2 password hashing, JWT Bearer tokens, `POST /auth/register`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/me`, `POST /auth/change-password`, `require_role` RBAC dependency (ADMIN, ENGINEER, USER, VIEWER), and `docs/AUTH_RBAC.md`.
+- `[ ]` **Stage 7 — Executable Workflow Engine**: Next up.
 - `[ ]` **Stage 8 — Real Evaluation System**
 - `[ ]` **Stage 9 — Frontend Integration**
 - `[ ]` **Stage 10 — Observability & Tracing**

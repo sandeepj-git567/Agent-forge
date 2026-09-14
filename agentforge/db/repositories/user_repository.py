@@ -41,6 +41,25 @@ class UserRepository:
             self.db.refresh(user)
         return user
 
+    def update_password(self, user_id: str, new_hashed_password: str) -> User | None:
+        """Update hashed password for a user."""
+        user = self.get_by_id(user_id)
+        if user:
+            user.hashed_password = new_hashed_password
+            self.db.commit()
+            self.db.refresh(user)
+        return user
+
+    def update_last_login(self, user_id: str) -> User | None:
+        """Update last login timestamp."""
+        user = self.get_by_id(user_id)
+        if user:
+            from datetime import datetime, timezone
+            user.last_login_at = datetime.now(timezone.utc)
+            self.db.commit()
+            self.db.refresh(user)
+        return user
+
     def list_all(self, limit: int = 100, offset: int = 0) -> Sequence[User]:
         """List users with pagination."""
         return self.db.query(User).order_by(User.created_at.desc()).offset(offset).limit(limit).all()

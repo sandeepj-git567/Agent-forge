@@ -27,6 +27,8 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(50), default="USER", nullable=False, index=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=current_utc, nullable=False, index=True)
     updated_at = Column(DateTime(timezone=True), default=current_utc, onupdate=current_utc, nullable=False)
 
