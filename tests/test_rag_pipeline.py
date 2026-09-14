@@ -100,3 +100,16 @@ def test_rag_search_api():
     assert "rewritten_query" in data
     assert "confidence_score" in data
     assert "citations" in data
+
+
+def test_rag_ask_api():
+    req_body = {
+        "question": "What is AgentForge AI?",
+        "top_k": 3
+    }
+    response = client.post("/api/v1/rag/ask", json=req_body)
+    assert response.status_code == 200
+    data = response.json()
+    assert "answer" in data
+    assert "confidence_score" in data
+    assert "citations" in data
